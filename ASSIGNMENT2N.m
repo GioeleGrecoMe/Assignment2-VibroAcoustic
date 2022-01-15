@@ -1,5 +1,6 @@
 clear all, close all, clc
 
+
 %% Data & Matrices
 R1 = 1;
 R2 = 0.5;
@@ -39,6 +40,7 @@ K_gen = jac_K'*K*jac_K;
 %Damping matrix
 jac_C = jac_K;
 C = diag([c1 c2 c3 c4]);
+K_gg=jac_C'*K*jac_C;
 C_gen = jac_C'*C*jac_C;
 
 %% 1A DA SCRIVERE A MANO
@@ -50,7 +52,7 @@ C_gen = jac_C'*C*jac_C;
 % lambda = i*omega;
 [V,D] = eig(inv(M_gen)*K_gen); % V are the eigenvectors, D are the eigenvalues
 % DAMPED - Eigenfrequencies & eigenvectors
-
+w0_nat=sqrt(diag(D));
 % in [A_damp] the submatrix [C] is full
 % use state form matrix: new variable z = [vel; pos];
 A_damp = - inv([M_gen zeros(size(M_gen)); zeros(size(M_gen)) M_gen])*[C_gen K_gen; -M_gen zeros(size(M_gen))];
@@ -79,6 +81,9 @@ A_damp = -inv([M_gen zeros(size(M_gen)); zeros(size(M_gen)) M_gen])*...
 [V_damp,D_damp] = eig(A_damp);
 
 % Mode shapes
+%Guardando in V_damp noto che gli autovettori più vicini agli undamped sono
+%quelli in posizione 1:3, ma dovrebbero essere quelli in seconda posizione.
+%come mai?
 V_damp = V_damp(4:6,:); %consider only the displacements
 V_damp_1 = V_damp./V_damp(1,:);%1st normalization
 V_damp_2 = V_damp./V_damp(2,:);%2nd normalization
@@ -127,7 +132,7 @@ A_damp = -inv([M_gen zeros(size(M_gen)); zeros(size(M_gen)) M_gen])*...
 [V_damp,D_damp] = eig(A_damp);
 
 % Mode shapes
-V_damp = V_damp(4:6,:); %consider only the displacements
+V_damp = V_damp(1:3,:); %consider only the displacements
 
 V_damp_1 = V_damp./V_damp(1,:);%1st normalization
 V_damp_2 = V_damp./V_damp(2,:);%2nd normalization
@@ -154,8 +159,8 @@ V_2 = [V_damp]./[V_damp(2,:)];
 %3rd normalization
 V_3 = [V_damp]./[V_damp(3,:)];
 
-pos_t0=V_3(:,6);
-vel_t0=[0,0,0]';
+%pos_t0=V_3(:,6);
+%vel_t0=[0,0,0]';
 
 % Analytical
 const_damp = [V_damp; lambda.'.*V_damp]\[pos_t0;vel_t0];
@@ -169,7 +174,9 @@ end
 
 %Plot the 2 different solutions
 %figure(2)
-%hold on
+hold on
+plot(t_damp,free_motion_damp(1,:),'b',t_damp,free_motion_damp(2,:)*R2,'k',t_damp,free_motion_damp(3,:)*R1,'r'); 
+
 plot(t_damp,free_motion_damp1(1,:),t_damp,free_motion_damp1(2,:)*R2,t_damp,free_motion_damp1(3,:)*R1); 
 grid minor
 xlabel('Time [s]')
@@ -182,7 +189,7 @@ C_ray=C_R_Analytic;
 w=0:0.01:30;
 H_tot=zeros(1,9);
 for ii=1:length(w)
-    H = inv(-w(ii)^2*M_gen+1i*w(ii)*C_ray+K_gen);
+    H = inv((-w(ii)^2)*M_gen+1i*w(ii)*C_ray+K_gen);
     H11(ii)=H(1,1); H12(ii)=H(1,2); H21(ii)=H(2,1); H22(ii)=H(2,2);
     H31(ii)=H(3,1); H32(ii)=H(3,2); H33(ii)=H(3,3); H13(ii)=H(1,3);
     H23(ii)=H(2,3);
@@ -199,15 +206,15 @@ for i=1:size(H_tot,2)
     grid on
      xlabel('Frequency [Hz]');
     if (i<4) 
-            plot(w/2/pi,abs(H_tot(:,i)),'b'); 
+            semilogy(w/2/pi,abs(H_tot(:,i)),'b'); 
         ylabel(['|H 1',num2str(i),'| [m/N]']); 
         title(['|H 1',num2str(i),'|']);
     elseif(i<7)
-            plot(w/2/pi,abs(H_tot(:,i)),'b'); 
+            semilogy(w/2/pi,abs(H_tot(:,i)),'b'); 
         ylabel(['|H 2',num2str(i-3),'| [m/N]']); 
         title(['|H 2',num2str(i-3),'|']);
     else
-            plot(w/2/pi,abs(H_tot(:,i)),'b'); 
+            semilogy(w/2/pi,abs(H_tot(:,i)),'b'); 
         ylabel(['|H 3',num2str(i-6),'| [m/N]']); 
         title(['|H 3',num2str(i-6),'|']);
     end
@@ -272,14 +279,14 @@ sgtitle('Phase of FRF')
 %% 3B Plot the co-located FRF of point A at the centre of the disk (co-located meaning the FRF
 %between the displacement in A and a force applied in A).
 
-%xA=x3+R2*teta2
 jac_A=[1;0;R2];
 
 for ii=1:length(w)
-    H = inv(-w(ii)^2*M_gen+1i*w(ii)*C_ray+K_gen)*jac_A;
-    FRF(:,ii)=H;
+    H = inv(-w(ii)^2*M_gen+1i*w(ii)*C_ray+K_gen);
+    FRF(:,ii)=pinv(jac_A)*H*jac_A;
 end
-plot(w/2/pi,abs(sum(FRF)),'b'); grid minor; xlabel('Frequency [Hz]'); ylabel('|H_1_1| [m/N]'); title('H_1_1')
+figure(17)
+plot(w/2/pi,abs(sum(FRF)),'b'); grid minor; xlabel('Frequency [Hz]'); ylabel('|H_A| [m/N]'); title('H_A')
 
 %plot(w/2/pi,(abs(FRF(:,:))),'b')
 %% 3C Plot the co-located FRF of point 2 at the centre of the disk 2 with a couple
@@ -287,9 +294,10 @@ plot(w/2/pi,abs(sum(FRF)),'b'); grid minor; xlabel('Frequency [Hz]'); ylabel('|H
 jac_2=[0;0;1];
 
 for ii=1:length(w)
-    H = inv(-w(ii)^2*M_gen+1i*w(ii)*C_ray+K_gen)*jac_2;
-    FRF(:,ii)=H;
+    H = inv(-w(ii)^2*M_gen+1i*w(ii)*C_ray+K_gen);
+    FRF(:,ii)=pinv(jac_2)*H*jac_2;
 end
+figure(18)
 plot(w/2/pi,abs(sum(FRF)),'b'); grid minor; xlabel('Frequency [Hz]'); ylabel('|H_1_1| [m/N]'); title('H_1_1')
 
 
@@ -371,8 +379,9 @@ Fdt = 0;
 Xdt = 0;
 
 for ii = 1:5 %number of harmonics used to reconstruct the square wave
-    n = 2*ii;
-    F(ii) = 8/(pi^2)*(-1)^(n-1)*1/(n^2);
+    k=ii-1;
+    n = 2*k+1;
+    F(ii) = 8/(pi^2)*((-1)^k)*1/(n^2);
     w_f(ii) = 2*pi*n*f0; %omega force
     X(ii,:) = inv(-(w_f(ii))^2*M_gen + 1i*w_f(ii)*C_gen + K_gen)*lambda_f*F(ii)*exp(1i*pi/2);    
     Fdt = Fdt+F(ii)*sin(w_f(ii)*t); %force
@@ -433,24 +442,29 @@ title('Overall Time Responce')
 
 
 %% Modal approach
+[V,D] = eig(inv(M_gen)*K_gen);
+% [V,D] = eig(M_gen\K_gen);
+
+%Natural frequencies
+w_nat = sqrt(diag(D)); %[rad/s]
 %lambda = alpha +- w_d;
 %w0_nat = sqrt(w_d.^2+alpha.^2);
-%w0_nat = w_nat;
+w0_nat = w_nat;
 
 % Consider the undamped case
- [V,D]=eig(M_gen\K_gen);
- w_nat=[sqrt(diag(D)); -sqrt(diag(D))];
- V=[V V]./[V(end,:) V(end,:)];
- [w_nat,index]=sort(w_nat);
- V=V(:,index)./max(abs(V(:,index)));
+% [V,D]=eig(M_gen\K_gen);
+% w_nat=[sqrt(diag(D)); -sqrt(diag(D))];
+% V=[V V]./[V(end,:) V(end,:)];
+% [w_nat,index]=sort(w_nat);
+% V=V(:,index)./max(abs(V(:,index)));
 
-phi = [V_1(:,1), V_1(:,2), V_1(:,3)]; %matrix of the mode shapes
+phi = V./max(abs(V)); %matrix of the mode shapes
 
 % Diagonalization of the matrix
 M_mod = phi'*M_gen*phi;
 K_mod = phi'*K_gen*phi;
 
-h = csi;%[csi_1(2); csi_1(4); csi_1(6)]; %adimensional damping coefficient
+h = [csi_1(2); csi_1(4); csi_1(6)]; %adimensional damping coefficient
 
 const_mod = [1./(2*w0_nat)  w0_nat./2]\h; %pseudo-inverse (least mean square error)
 
@@ -472,20 +486,11 @@ w = 0:0.01:30;
 
 % Diagonal matrix with eps in extra diagonal positions
 for ii = 1:length(w)
-    FRF_q = pinv(-w(ii)^2*M_mod+1i*w(ii)*C_mod+K_mod);
+    FRF_q = inv(-w(ii)^2*M_mod+1i*w(ii)*C_mod+K_mod);
     FRF_q11(ii) = FRF_q(1,1); FRF_q12(ii) = FRF_q(1,2); FRF_q13(ii) = FRF_q(1,3);
     FRF_q21(ii) = FRF_q(2,1); FRF_q22(ii) = FRF_q(2,2); FRF_q23(ii) = FRF_q(2,3);
     FRF_q31(ii) = FRF_q(3,1); FRF_q32(ii) = FRF_q(3,2); FRF_q33(ii) = FRF_q(3,3);
 end
-
-% Diagonal matrix with 0 in extra diagonal positions
-% for ii = 1:length(w)
-%     FRF = inv(-w(ii)^2*MM+1i*w(ii)*CC+KK);
-%     FRF_q11(ii) = FRF(1,1); FRF_q12(ii) = FRF(1,2); FRF_q13(ii) = FRF(1,3);
-%     FRF_q21(ii) = FRF(2,1); FRF_q22(ii) = FRF(2,2); FRF_q23(ii) = FRF(2,3);
-%     FRF_q31(ii) = FRF(3,1); FRF_q32(ii) = FRF(3,2); FRF_q33(ii) = FRF(3,3);
-% end
-
 figure(9)
 subplot(3,3,1); plot(w/2/pi,abs(FRF_q11),'b'); grid on; xlabel('Frequency [Hz]'); ylabel('|H|[m/N]'); title('H_q_1_1');
 subplot(3,3,2); plot(w/2/pi,abs(FRF_q12),'b'); grid on; xlabel('Frequency [Hz]'); ylabel('|H|[m/N]'); title('H_q_1_2');
@@ -509,6 +514,28 @@ subplot(3,3,7); plot(w/2/pi,angle(FRF_q31)*180/pi,'b'); grid on; xlabel('Frequen
 subplot(3,3,8); plot(w/2/pi,angle(FRF_q32)*180/pi,'b'); grid on; xlabel('Frequency [Hz]'); ylabel('\angleH[deg]'); title('H_q_3_2'); yticks([-180 -90 0 90 180]); ylim([-200,200])
 subplot(3,3,9); plot(w/2/pi,angle(FRF_q33)*180/pi,'b'); grid on; xlabel('Frequency [Hz]'); ylabel('\angleH[deg]'); title('H_q_3_3'); yticks([-180 -90 0 90 180]); ylim([-200,200])
 sgtitle('Phase of the Modal FRF')
+%% 4.B Reconstruct the co-located FRF of point 𝐴 employing a modal approach and compare with
+%the one obtained using physical coordinates in (3.b)
+jac_A=[1;0;R2];
+jac_qA=phi'*jac_A;
+for ii=1:length(w)
+    H = inv(-w(ii)^2*M_mod+1i*w(ii)*C_mod+K_mod);
+    FRF(:,ii)=pinv(jac_qA)*H*jac_qA;
+end
+figure(19)
+plot(w/2/pi,abs(sum(FRF)),'b'); grid minor; xlabel('Frequency [Hz]'); ylabel('|H_A| [m/N]'); title('H_A')
+
+%% 4 C
+jac_2=[0;0;1];
+jac_q2=phi'*jac_2;
+for ii=1:length(w)
+    H = inv(-w(ii)^2*M_mod+1i*w(ii)*C_mod+K_mod);
+    FRF(:,ii)=pinv(jac_q2)*H*jac_q2;
+end
+figure(20)
+plot(w/2/pi,abs(sum(FRF)),'b'); grid minor; xlabel('Frequency [Hz]'); ylabel('|H_c2| [m/N]'); title('H_c2')
+
+%% Compute the steady state amplitude responce of the system with 2 forces
 
 %% Modal Approach - time histories reconstruction
 
@@ -634,7 +661,80 @@ ylabel('\angle [deg]')
 grid minor
 legend('H_1_3','H_q_1_1','H_q_2_2','H_q_3_3')
 
+%% 4 d. Compute the steady state amplitude of response for the three degrees of freedom when
+%excited by a horizontal force applied in A. Compare the complete system response with the
+%one obtained considering only the first mode of vibration, for the two following cases:
+%i. a harmonic force 𝐹(𝑡) = 𝐴1 𝑐𝑜𝑠(2𝜋𝑓1 𝑡);
+%ii. a harmonic force 𝐹(𝑡) = 𝐴2 𝑐𝑜𝑠(2𝜋𝑓2 𝑡).
 
+lambda_f = [1; 0; R2];
+%phi1=[phi(:,1),zeros(3,2)];
+
+lambda_qf=phi'*lambda_f;
+f1=1.5;
+f2=3.5;
+Fdt = 0;
+Xdt = 0;
+A1=15;
+A2=7;
+ampli=A1;
+F=A1;
+w_f=f1*2*pi;
+t=t_damp;
+ 
+    X(1,:) = phi(1,ii)*phi(1,ii)*inv(-(w_f)^2*M_mod + 1i*w_f*C_mod + K_mod)*lambda_qf*F*exp(1i*pi/2);   
+    Fdt = Fdt+F*sin(w_f*t); %force
+    Xdt = Xdt+real(X(1,:).*exp(1i*w_f*[t' t' t']));
+
+% figure(5)
+% subplot(2,3,1); plot(w/2/pi,ampli.*abs(FRF_q11),'b'); grid on; hold on; xlabel('Frequency [Hz]'); ylabel('Amplitude'); title('|H_1_1|')
+% stem(w_f/2/pi,F,'or');
+% xlim([0 5])
+% legend('FRF','Force')
+% subplot(2,3,2); plot(w/2/pi,ampli*abs(FRF_q22),'b'); grid on; hold on; xlabel('Frequency [Hz]'); ylabel('Amplitude'); title('|H_2_1|')
+% stem(w_f/2/pi,F,'or');xlim([0 5]) 
+% legend('FRF','Force')
+% subplot(2,3,3); plot(w/2/pi,ampli*abs(FRF_q33),'b'); grid on; hold on; xlabel('Frequency [Hz]'); ylabel('Amplitude'); title('|H_3_1|')
+% stem(w_f/2/pi,F,'or'); xlim([0 5])
+% legend('FRF','Force')
+% subplot(2,3,4); stem(w_f/2/pi,abs(X(:,1)),'b'); grid on; hold on; xlabel('Frequency [Hz]'); ylabel('Amplitude [m]'); title('|z|'); xlim([0 5])
+% subplot(2,3,5); stem(w_f/2/pi,abs(X(:,2)),'b'); grid on; hold on; xlabel('Frequency [Hz]'); ylabel('Amplitude [rad]'); title('|\theta_1|'); xlim([0 5])
+% subplot(2,3,6); stem(w_f/2/pi,abs(X(:,3)),'b'); grid on; hold on; xlabel('Frequency [Hz]'); ylabel('Amplitude [rad]'); title('|\theta_2|'); xlim([0 5])
+
+figure(6)
+subplot(2,1,1)
+plot(t,Xdt(:,1),t,Xdt(:,2),t,Xdt(:,3));
+grid minor
+xlabel('Time [s]')
+ylabel('Amplitude')
+legend('Forced Motion - q1','Forced Motion - q2','Forced Motion - q3','location','southeast')
+title('Forced Time Responce')
+subplot(2,1,2)
+plot(t,Fdt);
+grid minor
+xlabel('Time [s]')
+ylabel('Amplitude')
+legend('Force - [N]','location','southeast')
+title('Time History of the Force')
+
+% figure(7)
+% plot(t,free_motion_damp1.'); 
+% grid minor;   
+% xlabel('Time [s]')
+% ylabel('Amplitude')
+% legend('Free - z','Free - \theta_1','Free - \theta_2')
+% title('Free Time Responce')
+% 
+% 
+% % Pay attention to the initial conditions!!
+% figure(8)
+% plot(t,Xdt+free_motion_damp1.'); 
+% grid minor;   
+% xlabel('Time [s]')
+% ylabel('Amplitude')
+% legend('Free + Forced responce - z - [m]','Free + Forced responce - \theta_1 - [rad]',...
+%     'Free + Forced responce - \theta_2 - [rad]')
+% title('Overall Time Responce')
  
 
 
