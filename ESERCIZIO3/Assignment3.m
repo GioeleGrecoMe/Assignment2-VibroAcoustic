@@ -3,18 +3,18 @@ clear all
 %% load data
 load('Data')
 %n_ext=10;
-n_z=100000;
-t=[Data(:,1);zeros(n_z,1)];
+n_z=0;
+t=Data(:,1);
 %t_ext=interp(t,n_ext);
 %t=t_ext;
-F=[Data(:,2);zeros(n_z,1)];
+F=Data(:,2);
 %F_ext=interp(F,n_ext);
 %F=F_ext;
 xf=Data(:,3:end);
-x(:,1)=[xf(:,1);zeros(n_z,1)];
-x(:,2)=[xf(:,2);zeros(n_z,1)];
-x(:,3)=[xf(:,3);zeros(n_z,1)];
-x(:,4)=[xf(:,4);zeros(n_z,1)];
+x(:,1)=xf(:,1);
+x(:,2)=xf(:,2);
+x(:,3)=xf(:,3);
+x(:,4)=xf(:,4);
 %x=[interp(x(:,1),n_ext),interp(x(:,2),n_ext),interp(x(:,3),n_ext),interp(x(:,4),n_ext)];
 np=size(x,1);
 nj=size(x,2);
@@ -102,13 +102,16 @@ X_norm=X./(X(1,:));
 
 %% identification parameters single range
 nrange=4;
-[pks,idx_min]=(findpeaks(1./sum(abs(FRF(1:(ind(end)),:))')'));
-range_min=[frq(80);frq(idx_min)];
-range_max=[frq(idx_min-2);frq(ind(end)-300)];
-%%
-for irangle=1:nrange
-    fini=range_min(irangle);
-    ffin=range_max(irangle);
+for i=1:nrange
+    [pks,idx_min]=(findpeaks(1./sum(abs(FRF(i:(ind(end)),:))')'));
+    range_min(:,i)=[frq(50);frq(idx_min)];
+    range_max(:,i)=[frq(idx_min-4);frq(ind(end)-80)];
+end
+    %%
+for nx=1:nj
+    for irangle=1:nrange
+    fini=range_min(irangle,nx);
+    ffin=range_max(irangle,nx);
     iini=min(find(round(frq*1000)/1000>=fini));
     ifin=max(find(round(frq*1000)/1000<=ffin));
     disp(' ')
@@ -123,7 +126,7 @@ for irangle=1:nrange
     Hjkiexp=Hjkexp(iini:ifin,:);
     
     % First guess parameters: SIMPLIFIED METHODS
-    for nx=1:nj
+
 
         disp(' ')
         jj=nx;%input('Which diagram for identification? ');
@@ -131,8 +134,8 @@ for irangle=1:nrange
         [vmax,iwmax]=max(abs(Hjkiexp(:,jj)));
         f0i=rfHjki(iwmax);
         w0i0=2*pi*f0i;
-        derFIjki=(angle(Hjkiexp(iwmax+1,jj))-angle(Hjkiexp(iwmax-1,jj)))/(2*pi*(rfHjki(iwmax-1)));
-        csii0=-1/(w0i0*derFIjki);
+        derFIjki=(angle(Hjkiexp(iwmax+3,jj))-angle(Hjkiexp(iwmax-3,jj)))/(2*pi*(rfHjki(iwmax-1)));
+        csii0=-1/(w0i0*derFIjki*2*pi);
         r0i=2*w0i0*csii0;
         % Constant parameters guessing
         Aj0=-imag(Hjkiexp(iwmax,jj))*w0i0*r0i;
